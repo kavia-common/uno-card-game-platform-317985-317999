@@ -53,6 +53,10 @@ class SettingsPatchRequest(BaseModel):
     scoreLimit: Optional[int] = Field(default=None, ge=50, le=5000, description="Match ends when a player reaches this score.")
 
 
+class CallUnoRequest(BaseModel):
+    playerId: str = Field(default="p1", description="Player calling UNO (defaults to p1 / You).")
+
+
 def _public(game_store: InMemoryGameStore, game_id: str, you_player_id: str = "p1") -> Dict[str, Any]:
     sess = game_store.get(game_id)
     return as_public_state(sess.game, you_player_id=you_player_id)
@@ -169,6 +173,24 @@ def build_games_router(game_store: InMemoryGameStore) -> APIRouter:
             patch = {k: v for k, v in req.model_dump().items() if v is not None}
             game = game_store.patch_settings(game_id, patch)
             return as_public_state(game, you_player_id="p1")
+        except KeyError as e:
+            raise HTTPException(status_code=404, detail="Game not found.") from e
+
+    @router.post(
+        "/{game_id}/uno",
+        summary="Call UNO",
+        description=(
+            "Compatibility endpoint for clients that support an explicit UNO call action. "
+            "Current in-memory engine does not enforce UNO-call penalties yet; this endpoint "
+            "returns the current public game state."
+        ),
+        operation_id="call_uno",
+    )
+    def call_uno(game_id: str, req: CallUnoRequest) -> Dict[str, Any]:
+        try:
+            # Placeholder/no-op: return state so frontend flow remains consistent.
+            sess = game_store.get(game_id)
+            return as_public_state(sess.game, you_player_id=req.playerId)
         except KeyError as e:
             raise HTTPException(status_code=404, detail="Game not found.") from e
 
